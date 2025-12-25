@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>🌋 SOMA's Volcano Multiplication Challenge!! 🌋</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body{
+  font-family:"Arial Rounded MT Bold",Arial,sans-serif;
+  background:linear-gradient(#cce7ff,#fff);
+  text-align:center;
+  padding:20px;
+}
+
+h1{font-size:2.6em;color:#ff5722}
+
+#stats{font-size:1.2em;margin:6px;color:#444}
+
+/* ===== Progress ===== */
+#levelBox{max-width:520px;margin:12px auto}
+#levelText{font-size:1.2em;margin-bottom:6px}
+
+.progress-bg{
+  width:100%;
+  height:22px;
+  background:#ddd;
+  border-radius:20px;
+  overflow:hidden;
+}
+.progress-bar{
+  height:100%;
+  width:0%;
+  background:linear-gradient(90deg,#ff9800,#ff5722);
+  transition:width 0.4s ease;
+}
+
+#nextInfo{font-size:1em;margin-top:4px;color:#555}
+
+#question{font-size:3.2em;margin:16px 0}
+
+#hintBtn{
+  font-size:1.2em;
+  padding:6px 20px;
+  border-radius:20px;
+  border:none;
+  background:#ffeb3b;
+}
+
+.visual-answer{
+  display:flex;
+  justify-content:center;
+  gap:30px;
+  flex-wrap:wrap;
+  margin-top:10px;
+}
+
+.dot-row{display:flex;justify-content:center}
+.dot{
+  width:24px;height:24px;margin:4px;
+  border-radius:50%;
+  background:radial-gradient(circle,#ffd180,#ff5722,#d84315);
+  animation:pulse 1.2s infinite;
+}
+
+@keyframes pulse{50%{transform:scale(1.15)}}
+
+input{
+  font-size:2.4em;
+  width:220px;
+  text-align:center;
+}
+
+.keypad{
+  display:grid;
+  grid-template-columns:repeat(3,110px);
+  gap:12px;
+  justify-content:center;
+  margin:20px auto;
+}
+
+.keypad button{
+  font-size:2em;
+  padding:20px;
+  border-radius:16px;
+  border:none;
+  background:#fff;
+}
+
+.ok{background:#00c853;color:#fff}
+.clear{background:#ff5252;color:#fff}
+
+#message{font-size:1.6em;height:1.5em}
+
+/* ===== Stickers ===== */
+#stickerGrid{
+  display:grid;
+  grid-template-columns:repeat(3,180px);
+  gap:20px;
+  justify-content:center;
+  margin-top:20px;
+}
+
+.sticker{
+  width:180px;
+  height:180px;
+  background:#fff8e1;
+  border-radius:26px;
+  border:4px solid #ff9800;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+}
+
+.sticker img{width:170px}
+
+/* ===== Zoom ===== */
+#zoom{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.85);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:3000;
+}
+#zoom img{width:90vw;max-width:520px}
+
+/* ===== Level Up ===== */
+#overlay{
+  position:fixed;
+  inset:0;
+  background:radial-gradient(circle,#ffd740,#ff5722);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:2000;
+}
+#overlay h2{
+  font-size:4.8em;
+  color:white;
+  animation:pop 1.2s ease-out;
+}
+@keyframes pop{
+  0%{transform:scale(0.2);opacity:0}
+  60%{transform:scale(1.3)}
+  100%{transform:scale(1)}
+}
+</style>
+</head>
+
+<body>
+
+<h1>🌋 SOMA's Volcano Multiplication Challenge!! 🌋</h1>
+
+<div id="stats">
+  Total Correct Answers: <b id="count">0</b>
+</div>
+
+<div id="levelBox">
+  <div id="levelText">Level 1</div>
+  <div class="progress-bg">
+    <div class="progress-bar" id="progress"></div>
+  </div>
+  <div id="nextInfo"></div>
+</div>
+
+<div id="question">?</div>
+<button id="hintBtn" onclick="showHint()">💡 Hint</button>
+
+<div class="visual-answer">
+  <div id="visual"></div>
+  <input id="answer" readonly placeholder="Tap number">
+</div>
+
+<div class="keypad">
+  <button onclick="add(1)">1</button><button onclick="add(2)">2</button><button onclick="add(3)">3</button>
+  <button onclick="add(4)">4</button><button onclick="add(5)">5</button><button onclick="add(6)">6</button>
+  <button onclick="add(7)">7</button><button onclick="add(8)">8</button><button onclick="add(9)">9</button>
+  <button class="clear" onclick="clr()">Clear</button><button onclick="add(0)">0</button>
+  <button class="ok" onclick="check()">OK</button>
+</div>
+
+<div id="message"></div>
+
+<h2>🏆 My Volcano Stickers</h2>
+<div id="stickerGrid"></div>
+
+<div id="overlay"><h2>LEVEL UP!</h2></div>
+<div id="zoom" onclick="this.style.display='none'"><img></div>
+
+<script>
+let a,b,total=0,hint=false,level=1;
+
+/* ===== Threshold logic ===== */
+function nextThreshold(){
+  if(total < 50){
+    return Math.ceil((total+1)/10)*10;
+  }
+  return 50 + Math.ceil((total-50+1)/20)*20;
+}
+
+/* ===== Stickers (no duplicates) ===== */
+let stickerPool=[...Array(10)].map((_,i)=>`volst (${i+1}).png`);
+stickerPool.sort(()=>Math.random()-0.5);
+
+/* ===== Progress ===== */
+function updateProgress(){
+  const next=nextThreshold();
+  const prev=level===1?0:(level<=5?(level-1)*10:50+(level-6)*20);
+  const pct=Math.min(100,((total-prev)/(next-prev))*100);
+  progress.style.width=pct+"%";
+  levelText.textContent="Level "+level;
+  nextInfo.textContent=`Next level in ${next-total} questions`;
+}
+
+/* ===== Question generation ===== */
+function q(){
+  const limit = total < 20 ? 9 : 12;
+  a=Math.floor(Math.random()*limit)+1;
+  b=Math.floor(Math.random()*limit)+1;
+  question.textContent=`${a} × ${b}`;
+  visual.innerHTML="";
+  hint=false;
+  answer.value="";
+}
+
+/* ===== Hint ===== */
+function showHint(){
+  if(hint)return;
+  hint=true;
+  for(let i=0;i<a;i++){
+    let r=document.createElement("div");
+    r.className="dot-row";
+    for(let j=0;j<b;j++){
+      let d=document.createElement("div");
+      d.className="dot";
+      r.appendChild(d);
+    }
+    visual.appendChild(r);
+  }
+}
+
+/* ===== Input ===== */
+function add(n){if(answer.value.length<3)answer.value+=n}
+function clr(){answer.value=""}
+
+/* ===== Check ===== */
+function check(){
+  if(+answer.value===a*b){
+    total++;
+    count.textContent=total;
+    message.textContent="🎉 Correct!";
+
+    if(total===nextThreshold()){
+      level++;
+      levelUp();
+    }
+
+    updateProgress();
+    setTimeout(q,600);
+  }else{
+    message.textContent="😊 Try again!";
+  }
+}
+
+/* ===== Level Up ===== */
+function levelUp(){
+  overlay.style.display="flex";
+  setTimeout(()=>overlay.style.display="none",1200);
+
+  if(stickerPool.length===0)return;
+
+  const imgSrc=stickerPool.shift();
+  const s=document.createElement("div");
+  s.className="sticker";
+  const img=document.createElement("img");
+  img.src=imgSrc;
+  img.onclick=()=>{
+    zoom.style.display="flex";
+    zoom.querySelector("img").src=img.src;
+  };
+  s.appendChild(img);
+  stickerGrid.appendChild(s);
+}
+
+updateProgress();
+q();
+</script>
+
+</body>
+</html>
